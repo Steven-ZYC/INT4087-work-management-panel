@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Team Project Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="h-screen overflow-hidden flex">
+
+    <div id="login-view" class="fixed inset-0 bg-[#eee7df] flex items-center justify-center z-50">
+        <div class="card-soft p-10 w-[28rem]">
+            <h2 class="text-3xl font-lora font-semibold text-center mb-2">Team Project Manager</h2>
+            <p class="text-sm text-center text-[var(--muted)] mb-6">A calm workspace for robotics collaboration.</p>
+            <div id="login-error" class="text-red-500 text-sm mb-4 hidden"></div>
+            <input id="l-student-id" type="text" placeholder="Student ID (e.g. s0000001)" class="w-full mb-4 p-3 rounded-xl border bg-white">
+            <input id="l-pass" type="password" placeholder="Password" class="w-full mb-6 p-3 rounded-xl border bg-white">
+            <button onclick="login()" class="w-full btn-accent py-3 font-medium">Login</button>
+            <p class="text-xs text-[var(--subtle)] mt-5 text-center leading-6">
+                Default accounts:<br>
+                s0000001 / admin<br>
+                s0000002 / leader<br>
+                s0000003 / member<br>
+                s0000004 / advisor
+            </p>
+        </div>
+    </div>
+
+    <div id="app-view" class="flex h-full w-full hidden">
+        <aside class="w-80 sidebar-soft flex flex-col px-5 py-6">
+            <div class="mb-8">
+                <h1 class="text-2xl font-lora font-semibold tracking-tight">Team Project Manager</h1>
+                <p class="text-sm text-[var(--muted)] mt-2">Structured, elegant, and built for collaboration.</p>
+            </div>
+
+            <div class="card-soft p-4 mb-6">
+                <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-2">Signed in</div>
+                <div id="user-info" class="text-sm leading-6"></div>
+            </div>
+
+            <nav class="space-y-2">
+                <button onclick="show('dashboard')" class="nav-btn w-full text-left">Dashboard</button>
+                <button onclick="show('projects')" class="nav-btn w-full text-left">Projects</button>
+                <button id="analytics-nav-btn" onclick="show('analytics')" class="nav-btn w-full text-left hidden">Analytics</button>
+                <button onclick="show('groups')" class="nav-btn w-full text-left">Groups</button>
+                <button onclick="show('members')" class="nav-btn w-full text-left">Members</button>
+            </nav>
+
+            <div class="mt-auto pt-6">
+                <button onclick="logout()" class="w-full btn-muted py-3 font-medium">Logout</button>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-8 overflow-auto">
+            <!-- DASHBOARD -->
+            <section id="dashboard-view">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-lora font-semibold">Overview</h2>
+                        <p class="text-sm text-[var(--muted)] mt-2">Projects, tasks, and deadlines in one quiet view.</p>
+                        <p id="dashboard-generated-at" class="text-xs text-[var(--subtle)] mt-2">Analytics unavailable</p>
+                    </div>
+                    <button onclick="openTaskModal()" class="btn-accent px-5 py-3 text-sm font-medium">+ New Task</button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="card-soft p-6">
+                        <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-3">Overdue Projects</div>
+                        <div id="dashboard-overdue-count" class="text-4xl font-lora font-semibold">0</div>
+                        <div id="dashboard-overdue-meta" class="text-sm text-[var(--muted)] mt-2">0 overdue tasks</div>
+                    </div>
+                    <div class="card-soft p-6 lg:col-span-2">
+                        <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-3">Projects At Risk</div>
+                        <div id="dashboard-overdue-projects" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="card-soft p-6">
+                        <h3 class="text-xl font-lora font-medium mb-4">Timeline</h3>
+                        <div id="timetable-list" class="timeline-container mt-4"></div>
+                    </div>
+
+                    <div class="card-soft p-6">
+                        <h3 class="text-xl font-lora font-medium mb-4">Urgent Tasks</h3>
+                        <div id="todo-list" class="grid gap-3 mt-4"></div>
+                    </div>
+                </div>
+
+                <div class="card-soft p-6">
+                    <h3 class="text-xl font-lora font-medium mb-4">Urgent / Important Matrix</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border rounded-2xl p-4 bg-rose-50 border-rose-200">
+                            <div class="font-medium">Urgent + Important</div>
+                            <div id="quadrant-urgent-important" class="mt-3 space-y-2"></div>
+                        </div>
+                        <div class="border rounded-2xl p-4 bg-amber-50 border-amber-200">
+                            <div class="font-medium">Not Urgent + Important</div>
+                            <div id="quadrant-not-urgent-important" class="mt-3 space-y-2"></div>
+                        </div>
+                        <div class="border rounded-2xl p-4 bg-sky-50 border-sky-200">
+                            <div class="font-medium">Urgent + Less Important</div>
+                            <div id="quadrant-urgent-less-important" class="mt-3 space-y-2"></div>
+                        </div>
+                        <div class="border rounded-2xl p-4 bg-stone-50 border-stone-200">
+                            <div class="font-medium">Not Urgent + Less Important</div>
+                            <div id="quadrant-not-urgent-less-important" class="mt-3 space-y-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PROJECTS -->
+            <section id="projects-view" class="hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-lora font-semibold">Projects</h2>
+                        <p class="text-sm text-[var(--muted)] mt-2">Top-level initiatives and their subprojects.</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="openProjectModal()" class="btn-accent px-5 py-3 text-sm font-medium">+ New Project</button>
+                        <button onclick="openSubprojectModal()" class="btn-muted px-5 py-3 text-sm font-medium">+ New Subproject</button>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="card-soft p-6">
+                        <h3 class="text-xl font-lora font-medium mb-4">Project List</h3>
+                        <div id="project-list" class="space-y-3"></div>
+                    </div>
+                    <div class="card-soft p-6">
+                        <h3 class="text-xl font-lora font-medium mb-4">Subprojects</h3>
+                        <div id="subproject-list" class="space-y-3"></div>
+                    </div>
+                    <div class="card-soft p-6">
+                        <h3 class="text-xl font-lora font-medium mb-4">Tasks</h3>
+                        <div id="project-task-list" class="space-y-3"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ANALYTICS -->
+            <section id="analytics-view" class="hidden">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-lora font-semibold">Analytics</h2>
+                    <p class="text-sm text-[var(--muted)] mt-2">HKT-aligned workload, project risk, and deadline pressure.</p>
+                    <p id="analytics-trend-meta" class="text-xs text-[var(--subtle)] mt-2">Trend source unavailable</p>
+                </div>
+
+                <div id="analytics-access-note" class="card-soft p-6 hidden">
+                    <div class="text-lg font-lora font-medium">Analytics access is limited.</div>
+                    <div class="text-sm text-[var(--muted)] mt-2">Only admin and leader accounts can view this analysis panel.</div>
+                </div>
+
+                <div id="analytics-content" class="space-y-6">
+                    <div class="analytics-subnav">
+                        <button id="analytics-tab-overview" onclick="showAnalyticsTab('overview')" class="analytics-subnav-btn analytics-subnav-btn-active">Overview</button>
+                        <button id="analytics-tab-risk" onclick="showAnalyticsTab('risk')" class="analytics-subnav-btn">Risk</button>
+                        <button id="analytics-tab-pressure" onclick="showAnalyticsTab('pressure')" class="analytics-subnav-btn">Pressure</button>
+                        <button id="analytics-tab-trends" onclick="showAnalyticsTab('trends')" class="analytics-subnav-btn">Trends</button>
+                        <button id="analytics-tab-details" onclick="showAnalyticsTab('details')" class="analytics-subnav-btn">Details</button>
+                    </div>
+
+                    <section id="analytics-panel-overview" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                        <div class="card-soft p-6 analytics-card-highlight">
+                            <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-3">Projects</div>
+                            <div id="analytics-total-projects" class="text-4xl font-lora font-semibold">0</div>
+                            <div id="analytics-generated-at" class="text-sm text-[var(--muted)] mt-2">HKT</div>
+                        </div>
+                        <div class="card-soft p-6 analytics-card-highlight">
+                            <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-3">Tasks</div>
+                            <div id="analytics-total-tasks" class="text-4xl font-lora font-semibold">0</div>
+                            <div id="analytics-done-tasks" class="text-sm text-[var(--muted)] mt-2">0 done</div>
+                        </div>
+                        <div class="card-soft p-6 analytics-card-highlight">
+                            <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-3">Overdue</div>
+                            <div id="analytics-overdue-tasks" class="text-4xl font-lora font-semibold text-rose-700">0</div>
+                            <div id="analytics-blocked-tasks" class="text-sm text-[var(--muted)] mt-2">0 blocked</div>
+                        </div>
+                        <div class="card-soft p-6 analytics-card-highlight">
+                            <div class="text-xs uppercase tracking-[0.18em] text-[var(--subtle)] mb-3">Urgent</div>
+                            <div id="analytics-urgent-tasks" class="text-4xl font-lora font-semibold text-orange-700">0</div>
+                            <div id="analytics-at-risk-tasks" class="text-sm text-[var(--muted)] mt-2">0 at risk</div>
+                        </div>
+                    </div>
+
+                    <div class="card-soft p-6">
+                        <h3 class="text-xl font-lora font-medium mb-4">Quadrant Summary</h3>
+                        <div id="analytics-quadrants" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+                    </div>
+                    </section>
+
+                    <section id="analytics-panel-risk" class="grid grid-cols-1 xl:grid-cols-2 gap-6 hidden">
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Project Health</h3>
+                            <div id="analytics-project-health" class="space-y-3"></div>
+                        </div>
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Member Workload</h3>
+                            <div id="analytics-member-workload" class="space-y-3"></div>
+                        </div>
+                    </section>
+
+                    <section id="analytics-panel-pressure" class="space-y-6 hidden">
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Deadline Buckets</h3>
+                            <div id="analytics-deadline-buckets" class="space-y-3"></div>
+                        </div>
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Task Status Distribution</h3>
+                            <div id="analytics-status-distribution" class="space-y-3"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Project Risk Bands</h3>
+                            <div id="analytics-project-risk-bands" class="space-y-3"></div>
+                        </div>
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Analysis Signals</h3>
+                            <div class="text-sm text-[var(--muted)] leading-7">
+                                At-risk tasks are tasks due within the next 3 days in HKT and not yet done.<br>
+                                Project risk bands are derived from the current health score.
+                            </div>
+                        </div>
+                    </div>
+                    </section>
+
+                    <section id="analytics-panel-trends" class="grid grid-cols-1 xl:grid-cols-2 gap-6 hidden">
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Deadline Pressure Series</h3>
+                            <div id="analytics-deadline-pressure-series" class="space-y-3"></div>
+                        </div>
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Member Workload Pressure</h3>
+                            <div id="analytics-workload-pressure" class="space-y-3"></div>
+                        </div>
+                    </section>
+
+                    <section id="analytics-panel-details" class="space-y-6 hidden">
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Project Risk Trend</h3>
+                            <div id="analytics-project-risk-trend" class="space-y-3"></div>
+                        </div>
+                        <div class="card-soft p-6">
+                            <h3 class="text-xl font-lora font-medium mb-4">Top Risky Tasks</h3>
+                            <div id="analytics-top-risky-tasks" class="space-y-3"></div>
+                        </div>
+                    </div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- GROUPS -->
+            <section id="groups-view" class="hidden">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 class="text-3xl font-lora font-semibold">Groups</h2>
+                        <p class="text-sm text-[var(--muted)] mt-2">Functional teams inside the robotics group.</p>
+                    </div>
+                    <button id="new-group-btn" onclick="openGroupModal()" class="btn-accent px-5 py-3 text-sm font-medium">+ New Group</button>
+                </div>
+                <div class="card-soft p-6">
+                    <div id="group-list" class="space-y-3"></div>
+                </div>
+            </section>
+
+            <!-- MEMBERS -->
+            <section id="members-view" class="hidden">
+                <div class="mb-8 flex items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-3xl font-lora font-semibold">Members</h2>
+                        <p class="text-sm text-[var(--muted)] mt-2">Team profiles, roles, and group alignment.</p>
+                    </div>
+                    <button id="new-member-btn" onclick="openMemberModal()" class="hidden btn-accent px-5 py-3 text-sm font-medium">+ New Member</button>
+                </div>
+
+                <div class="card-soft p-6 overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="p-3">Student ID</th>
+                                <th class="p-3">Name</th>
+                                <th class="p-3">Email</th>
+                                <th class="p-3">Role</th>
+                                <th class="p-3">Groups</th>
+                                <th class="p-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="members-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- NEW TASK MODAL -->
+    <div id="task-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[34rem] max-h-[90vh] overflow-auto">
+            <h3 class="font-lora text-2xl font-medium mb-4">New Task</h3>
+
+            <label class="block text-xs text-[var(--subtle)] mb-1">Project</label>
+            <select id="task-project" onchange="populateSubprojectOptions()" class="w-full mb-3 p-3 rounded-xl border bg-white"></select>
+
+            <label class="block text-xs text-[var(--subtle)] mb-1">Subproject</label>
+            <select id="task-subproject" class="w-full mb-3 p-3 rounded-xl border bg-white"></select>
+
+            <input id="tt" type="text" placeholder="Task Title" class="w-full mb-3 p-3 rounded-xl border bg-white">
+
+            <label class="block text-xs text-[var(--subtle)] mb-1">Deadline</label>
+            <input id="td" type="datetime-local" class="w-full mb-3 p-3 rounded-xl border bg-white">
+
+            <label class="block text-xs text-[var(--subtle)] mb-1">Assign To (multiple allowed)</label>
+            <div id="ta-list" class="w-full mb-3 p-3 border rounded-xl bg-[var(--soft)] space-y-2 max-h-48 overflow-auto"></div>
+
+            <label class="block text-xs text-[var(--subtle)] mb-1">Subjective Importance (0 to 1)</label>
+            <div class="flex items-center gap-3 mb-6">
+                <input id="ti" type="range" min="0" max="1" step="0.01" value="0.50" class="flex-1" oninput="updateNewTaskUrgencyLabel(this.value)">
+                <span id="ti-value" class="text-sm px-3 py-2 rounded-xl border bg-white min-w-16 text-center">0.50</span>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="svTask()" class="flex-1 btn-accent py-3">Save Task</button>
+                <button onclick="closeModal('task-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-task-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[34rem] max-h-[90vh] overflow-auto">
+            <h3 class="font-lora text-2xl font-medium mb-4">Edit Task</h3>
+            <input type="hidden" id="et-id">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Title</label>
+            <input id="et-title" type="text" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Description</label>
+            <textarea id="et-desc" class="w-full mb-3 p-3 rounded-xl border bg-white h-28"></textarea>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Urgency (0 to 1)</label>
+            <div class="flex items-center gap-3 mb-6">
+                <input id="et-importance" type="range" min="0" max="1" step="0.01" value="0.50" class="flex-1" oninput="updateTaskUrgencyLabel(this.value)">
+                <span id="et-importance-value" class="text-sm px-3 py-2 rounded-xl border bg-white min-w-16 text-center">0.50</span>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="saveTaskEdit()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('edit-task-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROJECT MODAL -->
+    <div id="project-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[32rem]">
+            <h3 class="font-lora text-2xl font-medium mb-4">New Project</h3>
+            <input id="project-title" type="text" placeholder="Project Title" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <textarea id="project-desc" placeholder="Description" class="w-full mb-3 p-3 rounded-xl border bg-white h-28"></textarea>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Owner</label>
+            <select id="project-owner" class="w-full mb-6 p-3 rounded-xl border bg-white"></select>
+            <div class="flex space-x-3">
+                <button onclick="saveProject()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('project-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUBPROJECT MODAL -->
+    <div id="subproject-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[32rem]">
+            <h3 class="font-lora text-2xl font-medium mb-4">New Subproject</h3>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Project</label>
+            <select id="subproject-project" class="w-full mb-3 p-3 rounded-xl border bg-white"></select>
+            <input id="subproject-title" type="text" placeholder="Subproject Title" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <textarea id="subproject-desc" placeholder="Description" class="w-full mb-3 p-3 rounded-xl border bg-white h-28"></textarea>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Owner</label>
+            <select id="subproject-owner" class="w-full mb-6 p-3 rounded-xl border bg-white"></select>
+            <div class="flex space-x-3">
+                <button onclick="saveSubproject()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('subproject-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GROUP MODAL -->
+    <div id="group-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[32rem]">
+            <h3 class="font-lora text-2xl font-medium mb-4">New Group</h3>
+            <input id="group-name" type="text" placeholder="Group Name" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <textarea id="group-desc" placeholder="Description" class="w-full mb-6 p-3 rounded-xl border bg-white h-28"></textarea>
+            <div class="flex space-x-3">
+                <button onclick="saveGroup()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('group-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-group-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[32rem]">
+            <h3 class="font-lora text-2xl font-medium mb-4">Edit Group Description</h3>
+            <input type="hidden" id="eg-id">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Group Name</label>
+            <input id="eg-name" type="text" class="w-full mb-3 p-3 rounded-xl border bg-white" readonly>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Description</label>
+            <textarea id="eg-desc" class="w-full mb-6 p-3 rounded-xl border bg-white h-28"></textarea>
+            <div class="flex space-x-3">
+                <button onclick="saveGroupDescription()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('edit-group-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="group-members-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[36rem] max-h-[90vh] overflow-auto">
+            <h3 class="font-lora text-2xl font-medium mb-4">Manage Group Members</h3>
+            <input type="hidden" id="gm-id">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Group Name</label>
+            <input id="gm-name" type="text" class="w-full mb-3 p-3 rounded-xl border bg-white" readonly>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Members</label>
+            <div id="gm-members" class="w-full mb-6 p-3 border rounded-xl bg-[var(--soft)] space-y-2 max-h-80 overflow-auto"></div>
+            <div class="flex space-x-3">
+                <button onclick="saveGroupMembers()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('group-members-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW MEMBER MODAL -->
+    <div id="member-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[32rem] max-h-[90vh] overflow-auto">
+            <h3 class="font-lora text-2xl font-medium mb-4">New Member</h3>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Student ID</label>
+            <input id="nm-student-id" type="text" class="w-full mb-3 p-3 rounded-xl border bg-white" placeholder="e.g. s0000005">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Name</label>
+            <input id="nm-name" type="text" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Email</label>
+            <input id="nm-email" type="email" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Role</label>
+            <select id="nm-role" class="w-full mb-3 p-3 rounded-xl border bg-white">
+                <option value="member">member</option>
+                <option value="leader">leader</option>
+                <option value="advisor">advisor</option>
+                <option value="admin">admin</option>
+            </select>
+            <label class="block text-xs text-[var(--subtle)] mb-1">Initial Password</label>
+            <input id="nm-pass" type="password" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Groups</label>
+            <div id="nm-groups" class="w-full mb-6 p-3 border rounded-xl bg-[var(--soft)] space-y-2 max-h-44 overflow-auto"></div>
+            <div class="flex space-x-3">
+                <button onclick="saveNewMember()" class="flex-1 btn-accent py-3">Create</button>
+                <button onclick="closeModal('member-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MEMBER MODAL -->
+    <div id="edit-member-modal" class="hidden fixed inset-0 bg-black/35 flex items-center justify-center z-50">
+        <div class="card-soft p-6 w-[32rem]">
+            <h3 class="font-lora text-2xl font-medium mb-4">Edit Member</h3>
+            <input type="hidden" id="em-id">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Name</label>
+            <input id="em-name" type="text" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <label class="block text-xs text-[var(--subtle)] mb-1">Email</label>
+            <input id="em-email" type="email" class="w-full mb-3 p-3 rounded-xl border bg-white">
+            <label class="block text-xs text-[var(--subtle)] mb-1">New Password</label>
+            <input id="em-pass" type="password" class="w-full mb-6 p-3 rounded-xl border bg-white" placeholder="Leave blank to keep current">
+            <div class="flex space-x-3">
+                <button onclick="saveMember()" class="flex-1 btn-accent py-3">Save</button>
+                <button onclick="closeModal('edit-member-modal')" class="flex-1 btn-muted py-3">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
